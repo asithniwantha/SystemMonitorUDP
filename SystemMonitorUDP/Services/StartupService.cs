@@ -1,6 +1,6 @@
 using Microsoft.Win32;
-using System.Reflection;
 using System.IO;
+using System.Reflection;
 
 namespace SystemMonitorUDP.Services
 {
@@ -38,7 +38,7 @@ namespace SystemMonitorUDP.Services
             try
             {
                 var executablePath = GetExecutablePath();
-                
+
                 if (string.IsNullOrWhiteSpace(executablePath))
                 {
                     throw new InvalidOperationException("Could not determine executable path");
@@ -119,8 +119,10 @@ namespace SystemMonitorUDP.Services
                     }
                 }
 
-                // Method 4: Try Assembly location (fallback)
+                // Method 4: Try Assembly location (fallback) - Suppress IL3000 warning for single-file apps
+#pragma warning disable IL3000 // Assembly.Location always returns empty string for assemblies embedded in single-file app
                 var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+#pragma warning restore IL3000
                 if (!string.IsNullOrWhiteSpace(assemblyLocation))
                 {
                     // Handle .dll to .exe conversion for .NET apps
@@ -132,7 +134,7 @@ namespace SystemMonitorUDP.Services
                             return exePath;
                         }
                     }
-                    
+
                     if (File.Exists(assemblyLocation))
                     {
                         return assemblyLocation;
@@ -165,7 +167,7 @@ namespace SystemMonitorUDP.Services
             try
             {
                 var methods = new List<string>();
-                
+
                 // Test all methods
                 try
                 {
@@ -191,7 +193,7 @@ namespace SystemMonitorUDP.Services
                 try
                 {
                     var baseDirectory = AppContext.BaseDirectory;
-                    var assemblyName = Assembly.GetExecutingAssembly().GetName().Name;
+                    var assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? "Unknown";
                     var potentialPath = Path.Combine(baseDirectory, $"{assemblyName}.exe");
                     methods.Add($"AppContext.BaseDirectory: {baseDirectory}");
                     methods.Add($"Assembly Name: {assemblyName}");
@@ -204,7 +206,9 @@ namespace SystemMonitorUDP.Services
 
                 try
                 {
+#pragma warning disable IL3000 // Assembly.Location always returns empty string for assemblies embedded in single-file app
                     var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+#pragma warning restore IL3000
                     methods.Add($"Assembly.Location: {assemblyLocation ?? "null"} (Exists: {(!string.IsNullOrWhiteSpace(assemblyLocation) ? File.Exists(assemblyLocation).ToString() : "N/A")})");
                 }
                 catch (Exception ex)
@@ -223,10 +227,10 @@ namespace SystemMonitorUDP.Services
                 }
 
                 var isEnabled = IsStartupEnabled();
-                
+
                 using var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, false);
                 var registryValue = key?.GetValue(ApplicationName)?.ToString() ?? "Not found";
-                
+
                 return $"=== STARTUP DEBUG INFO ===\n" +
                        $"Final Executable Path: {executablePath}\n" +
                        $"Startup Enabled: {isEnabled}\n" +

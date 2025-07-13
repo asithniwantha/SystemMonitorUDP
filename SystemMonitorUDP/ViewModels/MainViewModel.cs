@@ -89,10 +89,10 @@ namespace SystemMonitorUDP.ViewModels
 
             IsMonitoring = true;
             WindowTitle = "UDP System Monitor - Active";
-            
+
             _monitoringTimer.Interval = MonitoringInterval;
             _monitoringTimer.Start();
-            
+
             AddLogEntry($"Monitoring started - Target: {TargetHost}:{Port}, Interval: {MonitoringInterval}ms");
             await SaveSettings();
         }
@@ -104,7 +104,7 @@ namespace SystemMonitorUDP.ViewModels
 
             IsMonitoring = false;
             WindowTitle = "UDP System Monitor - Ready";
-            
+
             _monitoringTimer.Stop();
             AddLogEntry("Monitoring stopped");
             await SaveSettings();
@@ -125,7 +125,7 @@ namespace SystemMonitorUDP.ViewModels
             };
 
             await _settingsService.SaveSettingsAsync(settings);
-            
+
             // Handle Windows startup setting
             try
             {
@@ -136,7 +136,7 @@ namespace SystemMonitorUDP.ViewModels
             {
                 AddLogEntry($"Error updating startup setting: {ex.Message}");
             }
-            
+
             AddLogEntry("Settings saved");
         }
 
@@ -166,7 +166,7 @@ namespace SystemMonitorUDP.ViewModels
             try
             {
                 var metrics = await _systemMonitorService.GetCurrentMetricsAsync();
-                
+
                 // Update UI on main thread
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -179,11 +179,11 @@ namespace SystemMonitorUDP.ViewModels
                 });
 
                 await _udpService.SendDataAsync(metrics, TargetHost, Port);
-                
+
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     AddLogEntry($"Data sent - CPU: {metrics.CpuUsage:F1}%, RAM: {metrics.RamUsage:F1}%, Vol: {metrics.VolumeLevel:F1}%, Temp: {metrics.CpuTemperature:F1}°C");
-                    
+
                     // Add debug info for temperature every 10 seconds (20 intervals at 500ms)
                     if (_debugCounter++ % 20 == 0)
                     {
@@ -209,10 +209,10 @@ namespace SystemMonitorUDP.ViewModels
             AutoStartMonitoring = settings.AutoStartMonitoring;
             StartMinimizedToTray = settings.StartMinimizedToTray;
             MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
-            
+
             // Load startup setting and sync with registry
             StartWithWindows = settings.StartWithWindows;
-            
+
             // Verify actual startup status matches settings
             try
             {
@@ -233,7 +233,7 @@ namespace SystemMonitorUDP.ViewModels
         {
             var entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
             ActivityLog.Add(entry);
-            
+
             // Keep only last 100 entries
             while (ActivityLog.Count > 100)
             {

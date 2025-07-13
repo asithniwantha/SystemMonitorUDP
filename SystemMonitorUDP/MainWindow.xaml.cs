@@ -1,18 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.ComponentModel;
-using System.Text;
+﻿using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Windows.Forms;
-using SystemMonitorUDP.ViewModels;
 using SystemMonitorUDP.Services;
+using SystemMonitorUDP.ViewModels;
 
 namespace SystemMonitorUDP
 {
@@ -25,16 +14,18 @@ namespace SystemMonitorUDP
         private bool _isClosing = false;
         private readonly MainViewModel _viewModel;
         private readonly ISettingsService _settingsService;
+        private readonly IIconService _iconService;
 
-        public MainWindow(MainViewModel viewModel, ISettingsService settingsService)
+        public MainWindow(MainViewModel viewModel, ISettingsService settingsService, IIconService iconService)
         {
             InitializeComponent();
             _viewModel = viewModel;
             _settingsService = settingsService;
+            _iconService = iconService;
             DataContext = _viewModel;
-            
+
             InitializeSystemTray();
-            
+
             // Handle window state changes
             this.StateChanged += MainWindow_StateChanged;
             this.Closing += MainWindow_Closing;
@@ -44,7 +35,7 @@ namespace SystemMonitorUDP
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             var settings = await _settingsService.LoadSettingsAsync();
-            
+
             if (settings.StartMinimizedToTray)
             {
                 this.WindowState = WindowState.Minimized;
@@ -63,25 +54,35 @@ namespace SystemMonitorUDP
             try
             {
                 _notifyIcon = new NotifyIcon();
-                _notifyIcon.Icon = System.Drawing.SystemIcons.Application;
+
+                // Use IconService for custom icon, fallback to system icon
+                try
+                {
+                    _notifyIcon.Icon = _iconService.GetTrayIcon();
+                }
+                catch
+                {
+                    _notifyIcon.Icon = System.Drawing.SystemIcons.Application;
+                }
+
                 _notifyIcon.Text = "UDP System Monitor";
                 _notifyIcon.Visible = false;
 
                 // Create context menu for the system tray icon
                 var contextMenu = new ContextMenuStrip();
-                
+
                 var showMenuItem = new ToolStripMenuItem("Show Window", null, ShowApplication);
                 var hideMenuItem = new ToolStripMenuItem("Hide Window", null, HideApplication);
                 var separatorMenuItem = new ToolStripSeparator();
                 var exitMenuItem = new ToolStripMenuItem("Exit Application", null, ExitApplication);
-                
+
                 contextMenu.Items.Add(showMenuItem);
                 contextMenu.Items.Add(hideMenuItem);
                 contextMenu.Items.Add(separatorMenuItem);
                 contextMenu.Items.Add(exitMenuItem);
-                
+
                 _notifyIcon.ContextMenuStrip = contextMenu;
-                
+
                 // Double-click to show/hide the application
                 _notifyIcon.DoubleClick += (s, e) => ToggleWindowVisibility();
             }
@@ -109,12 +110,12 @@ namespace SystemMonitorUDP
         private async void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
             var settings = await _settingsService.LoadSettingsAsync();
-            
+
             if (!_isClosing && settings.MinimizeToTrayOnClose)
             {
                 e.Cancel = true;
                 this.Hide();
-                
+
                 if (_notifyIcon != null)
                 {
                     _notifyIcon.Visible = true;
@@ -142,7 +143,7 @@ namespace SystemMonitorUDP
             this.Activate();
             this.Topmost = true;  // Bring to front
             this.Topmost = false; // Remove topmost
-            
+
             if (_notifyIcon != null)
             {
                 _notifyIcon.Visible = false;
@@ -152,7 +153,7 @@ namespace SystemMonitorUDP
         private void HideApplication(object? sender, EventArgs e)
         {
             this.Hide();
-            
+
             if (_notifyIcon != null)
             {
                 _notifyIcon.Visible = true;
@@ -162,13 +163,13 @@ namespace SystemMonitorUDP
         private void ExitApplication(object? sender, EventArgs e)
         {
             _isClosing = true;
-            
+
             if (_notifyIcon != null)
             {
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }
-            
+
             _viewModel.Dispose();
             System.Windows.Application.Current.Shutdown();
         }
@@ -180,7 +181,7 @@ namespace SystemMonitorUDP
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }
-            
+
             _viewModel?.Dispose();
             base.OnClosed(e);
         }

@@ -12,10 +12,11 @@ namespace SystemMonitorUDP.Services
         bool IsValidHost(string host);
     }
 
-    public class UdpService : IUdpService
+    public class UdpService : IUdpService, IDisposable
     {
         private readonly UdpClient _udpClient;
         private readonly JsonSerializerSettings _jsonSettings;
+        private bool _disposed = false;
 
         public UdpService()
         {
@@ -33,6 +34,9 @@ namespace SystemMonitorUDP.Services
 
         public async Task SendDataAsync(SystemMetrics data, string host, int port)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(UdpService));
+            
             try
             {
                 var json = JsonConvert.SerializeObject(data, _jsonSettings);
@@ -69,7 +73,17 @@ namespace SystemMonitorUDP.Services
 
         public void Dispose()
         {
-            _udpClient?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                _udpClient?.Dispose();
+                _disposed = true;
+            }
         }
     }
 }

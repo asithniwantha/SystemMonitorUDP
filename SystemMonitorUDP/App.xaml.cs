@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Configuration;
-using System.Data;
 using System.Windows;
 using SystemMonitorUDP.Services;
 using SystemMonitorUDP.ViewModels;
@@ -27,6 +25,7 @@ namespace SystemMonitorUDP
                     services.AddSingleton<IUdpService, UdpService>();
                     services.AddSingleton<ISettingsService, SettingsService>();
                     services.AddSingleton<IStartupService, StartupService>();
+                    services.AddSingleton<IIconService, IconService>();
                     services.AddSingleton<MainViewModel>();
                     services.AddSingleton<MainWindow>();
                 })

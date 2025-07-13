@@ -18,8 +18,8 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     
-    <!-- Application Icon (optional) -->
-    <!-- <ApplicationIcon>icon.ico</ApplicationIcon> -->
+    <!-- Application Icon -->
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     
     <!-- Publish Settings -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -27,6 +27,11 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
+    
+    <!-- Warning Suppressions for Known Issues -->
+    <NoWarn>$(NoWarn);IL3000;CS8603;CS8600;NETSDK1206</NoWarn>
+    <WarningsAsErrors />
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,6 +42,22 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\**\*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('Resources\app.ico')">
+    <None Update="Resources\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  
+  <ItemGroup Condition="Exists('Resources\tray.ico')">
+    <None Update="Resources\tray.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

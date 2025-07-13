@@ -1,9 +1,9 @@
+using LibreHardwareMonitor.Hardware;
 using NAudio.CoreAudioApi;
 using System.Diagnostics;
 using System.Management;
 using System.Net.NetworkInformation;
 using SystemMonitorUDP.Models;
-using LibreHardwareMonitor.Hardware;
 
 namespace SystemMonitorUDP.Services
 {
@@ -29,7 +29,7 @@ namespace SystemMonitorUDP.Services
             _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
             _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
             _diskCounter = new PerformanceCounter("PhysicalDisk", "% Disk Time", "_Total");
-            
+
             InitializeNetworkInterface();
             InitializeHardwareMonitor();
             _previousTime = DateTime.Now;
@@ -38,7 +38,7 @@ namespace SystemMonitorUDP.Services
         private void InitializeNetworkInterface()
         {
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.OperationalStatus == OperationalStatus.Up && 
+                .Where(ni => ni.OperationalStatus == OperationalStatus.Up &&
                            ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 .OrderByDescending(ni => ni.Speed)
                 .ToArray();
@@ -163,11 +163,11 @@ namespace SystemMonitorUDP.Services
                 {
                     var bytesDiff = (currentBytesReceived + currentBytesSent) - (_previousBytesReceived + _previousBytesSent);
                     var speed = (bytesDiff / timeDiff) / (1024 * 1024); // Convert to MB/s
-                    
+
                     _previousBytesReceived = currentBytesReceived;
                     _previousBytesSent = currentBytesSent;
                     _previousTime = currentTime;
-                    
+
                     return Math.Round(Math.Max(0, speed), 3);
                 }
 
@@ -262,13 +262,13 @@ namespace SystemMonitorUDP.Services
                     {
                         foreach (var sensor in hardware.Sensors)
                         {
-                            if (sensor.SensorType == SensorType.Temperature && 
-                                sensor.Name.Contains("CPU") && 
+                            if (sensor.SensorType == SensorType.Temperature &&
+                                sensor.Name.Contains("CPU") &&
                                 sensor.Value.HasValue)
                             {
                                 var temp = sensor.Value.Value;
                                 System.Diagnostics.Debug.WriteLine($"LibreHardware CPU temp: {temp}°C from {sensor.Name}");
-                                
+
                                 if (temp >= 10 && temp <= 100)
                                 {
                                     return Math.Round(temp, 1);
@@ -282,13 +282,13 @@ namespace SystemMonitorUDP.Services
                         {
                             foreach (var sensor in subHardware.Sensors)
                             {
-                                if (sensor.SensorType == SensorType.Temperature && 
-                                    sensor.Name.Contains("CPU") && 
+                                if (sensor.SensorType == SensorType.Temperature &&
+                                    sensor.Name.Contains("CPU") &&
                                     sensor.Value.HasValue)
                                 {
                                     var temp = sensor.Value.Value;
                                     System.Diagnostics.Debug.WriteLine($"LibreHardware motherboard CPU temp: {temp}°C from {sensor.Name}");
-                                    
+
                                     if (temp >= 10 && temp <= 100)
                                     {
                                         return Math.Round(temp, 1);
@@ -312,20 +312,20 @@ namespace SystemMonitorUDP.Services
             {
                 using var searcher = new ManagementObjectSearcher(@"root\WMI", "SELECT * FROM MSAcpi_ThermalZoneTemperature");
                 using var results = searcher.Get();
-                
+
                 foreach (var result in results.Cast<ManagementObject>())
                 {
                     if (result["CurrentTemperature"] != null)
                     {
                         var rawTemp = Convert.ToDouble(result["CurrentTemperature"]);
                         System.Diagnostics.Debug.WriteLine($"Raw ACPI temp: {rawTemp}");
-                        
+
                         // MSAcpi_ThermalZoneTemperature returns temperature in tenths of Kelvin
                         var tempKelvin = rawTemp / 10.0;
                         var tempCelsius = tempKelvin - 273.15;
-                        
+
                         System.Diagnostics.Debug.WriteLine($"ACPI: {rawTemp} raw -> {tempKelvin}K -> {tempCelsius}°C");
-                        
+
                         // Sanity check: CPU temp should be between 10°C and 100°C
                         if (tempCelsius >= 10 && tempCelsius <= 100)
                         {
@@ -347,17 +347,17 @@ namespace SystemMonitorUDP.Services
             {
                 using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_TemperatureProbe");
                 using var results = searcher.Get();
-                
+
                 foreach (var result in results.Cast<ManagementObject>())
                 {
                     if (result["CurrentReading"] != null)
                     {
                         var rawTemp = Convert.ToDouble(result["CurrentReading"]);
                         System.Diagnostics.Debug.WriteLine($"Raw probe temp: {rawTemp}");
-                        
+
                         // Win32_TemperatureProbe can return in different units, try different conversions
                         double tempCelsius;
-                        
+
                         // If it's a large number, it might be in tenths of Kelvin
                         if (rawTemp > 1000)
                         {
@@ -377,9 +377,9 @@ namespace SystemMonitorUDP.Services
                         {
                             continue; // Skip this reading
                         }
-                        
+
                         System.Diagnostics.Debug.WriteLine($"Probe: {rawTemp} raw -> {tempCelsius}°C");
-                        
+
                         // Sanity check
                         if (tempCelsius >= 10 && tempCelsius <= 100)
                         {
@@ -401,14 +401,14 @@ namespace SystemMonitorUDP.Services
             {
                 using var searcher = new ManagementObjectSearcher(@"root\OpenHardwareMonitor", "SELECT * FROM Sensor WHERE SensorType='Temperature' AND Name LIKE '%CPU%'");
                 using var results = searcher.Get();
-                
+
                 foreach (var result in results.Cast<ManagementObject>())
                 {
                     if (result["Value"] != null)
                     {
                         var temp = Convert.ToDouble(result["Value"]);
                         System.Diagnostics.Debug.WriteLine($"OpenHardware temp: {temp}°C");
-                        
+
                         // OpenHardwareMonitor typically returns temperature in Celsius
                         if (temp >= 10 && temp <= 100)
                         {
@@ -431,19 +431,19 @@ namespace SystemMonitorUDP.Services
                 // Try to get temperature from performance counters
                 using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PerfRawData_Counters_ThermalZoneInformation");
                 using var results = searcher.Get();
-                
+
                 foreach (var result in results.Cast<ManagementObject>())
                 {
                     if (result["Temperature"] != null)
                     {
                         var rawTemp = Convert.ToDouble(result["Temperature"]);
                         System.Diagnostics.Debug.WriteLine($"Raw perf counter temp: {rawTemp}");
-                        
+
                         // This is typically in tenths of Kelvin
                         var tempCelsius = (rawTemp / 10.0) - 273.15;
-                        
+
                         System.Diagnostics.Debug.WriteLine($"PerfCounter: {rawTemp} raw -> {tempCelsius}°C");
-                        
+
                         if (tempCelsius >= 10 && tempCelsius <= 100)
                         {
                             return Math.Round(tempCelsius, 1);
