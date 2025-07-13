@@ -7,6 +7,26 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    
+    <!-- Application Information -->
+    <AssemblyTitle>UDP System Monitor</AssemblyTitle>
+    <AssemblyDescription>A modern Windows desktop application for monitoring system metrics and transmitting them over UDP</AssemblyDescription>
+    <AssemblyConfiguration>Release</AssemblyConfiguration>
+    <AssemblyCompany>SystemMonitorUDP</AssemblyCompany>
+    <AssemblyProduct>UDP System Monitor</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2024</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    
+    <!-- Application Icon (optional) -->
+    <!-- <ApplicationIcon>icon.ico</ApplicationIcon> -->
+    
+    <!-- Publish Settings -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

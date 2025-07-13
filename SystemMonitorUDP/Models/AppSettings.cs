@@ -8,5 +8,6 @@ namespace SystemMonitorUDP.Models
         public bool AutoStartMonitoring { get; set; } = false;
         public bool StartMinimizedToTray { get; set; } = false;
         public bool MinimizeToTrayOnClose { get; set; } = true;
+        public bool StartWithWindows { get; set; } = false;
     }
 }

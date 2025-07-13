@@ -212,6 +212,9 @@
                                 Foreground="White" Margin="0,3"/>
                         <CheckBox Content="Minimize to tray on close" IsChecked="{Binding MinimizeToTrayOnClose}" 
                                 Foreground="White" Margin="0,3"/>
+                        <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" 
+                                Foreground="White" Margin="0,3"
+                                ToolTip="Automatically start this application when Windows boots"/>
                     </StackPanel>
 
                     <!-- Control Buttons -->
@@ -227,6 +230,10 @@
                         <Button Content="Save Settings" 
                               Command="{Binding SaveSettingsCommand}" 
                               Style="{StaticResource ModernButton}"/>
+                        <Button Content="Debug Startup" 
+                              Command="{Binding DebugStartupCommand}" 
+                              Style="{StaticResource ModernButton}"
+                              ToolTip="Debug startup path detection"/>
                     </StackPanel>
                 </StackPanel>
             </GroupBox>

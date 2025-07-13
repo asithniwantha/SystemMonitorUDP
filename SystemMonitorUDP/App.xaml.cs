@@ -26,6 +26,7 @@ namespace SystemMonitorUDP
                     services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
                     services.AddSingleton<IUdpService, UdpService>();
                     services.AddSingleton<ISettingsService, SettingsService>();
+                    services.AddSingleton<IStartupService, StartupService>();
                     services.AddSingleton<MainViewModel>();
                     services.AddSingleton<MainWindow>();
                 })
