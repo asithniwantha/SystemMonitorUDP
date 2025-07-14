@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using SystemMonitorUDP.Services;
 using SystemMonitorUDP.ViewModels;
 
@@ -25,11 +26,41 @@ namespace SystemMonitorUDP
             DataContext = _viewModel;
 
             InitializeSystemTray();
+            InitializeAutoScroll();
 
             // Handle window state changes
             this.StateChanged += MainWindow_StateChanged;
             this.Closing += MainWindow_Closing;
             this.Loaded += MainWindow_Loaded;
+        }
+
+        private void InitializeAutoScroll()
+        {
+            // Subscribe to the ActivityLogUpdated event for auto-scroll functionality
+            _viewModel.ActivityLogUpdated += OnActivityLogUpdated;
+        }
+
+        private void OnActivityLogUpdated(object? sender, EventArgs e)
+        {
+            // Ensure we're on the UI thread
+            Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    // Find the ListView by name
+                    var listView = this.FindName("ActivityLogListView") as System.Windows.Controls.ListView;
+                    if (listView != null && listView.Items.Count > 0)
+                    {
+                        var lastItem = listView.Items[listView.Items.Count - 1];
+                        listView.ScrollIntoView(lastItem);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but don't crash the application
+                    System.Diagnostics.Debug.WriteLine($"Failed to auto-scroll activity log: {ex.Message}");
+                }
+            });
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -176,6 +207,9 @@ namespace SystemMonitorUDP
 
         protected override void OnClosed(EventArgs e)
         {
+            // Unsubscribe from events to prevent memory leaks
+            _viewModel.ActivityLogUpdated -= OnActivityLogUpdated;
+
             if (_notifyIcon != null)
             {
                 _notifyIcon.Dispose();

@@ -9,5 +9,13 @@ namespace SystemMonitorUDP.Models
         public bool StartMinimizedToTray { get; set; } = false;
         public bool MinimizeToTrayOnClose { get; set; } = true;
         public bool StartWithWindows { get; set; } = false;
+        
+        // Retry mechanism settings
+        public bool EnableRetries { get; set; } = true;
+        public int MaxRetries { get; set; } = 2;
+        public int BaseDelayMs { get; set; } = 100;
+        
+        // UI Settings
+        public bool AutoScrollActivityLog { get; set; } = true;
     }
 }

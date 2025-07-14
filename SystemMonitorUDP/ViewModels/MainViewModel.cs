@@ -60,7 +60,24 @@ namespace SystemMonitorUDP.ViewModels
         [ObservableProperty]
         private string _windowTitle = "UDP System Monitor - Ready";
 
+        // Retry mechanism properties
+        [ObservableProperty]
+        private bool _enableRetries = true;
+
+        [ObservableProperty]
+        private int _maxRetries = 2;
+
+        [ObservableProperty]
+        private int _baseDelayMs = 100;
+
+        // UI Settings
+        [ObservableProperty]
+        private bool _autoScrollActivityLog = true;
+
         public ObservableCollection<string> ActivityLog { get; } = new();
+
+        // Event for auto-scroll functionality
+        public event EventHandler? ActivityLogUpdated;
 
         public MainViewModel(ISystemMonitorService systemMonitorService, IUdpService udpService, ISettingsService settingsService, IStartupService startupService)
         {
@@ -93,7 +110,8 @@ namespace SystemMonitorUDP.ViewModels
             _monitoringTimer.Interval = MonitoringInterval;
             _monitoringTimer.Start();
 
-            AddLogEntry($"Monitoring started - Target: {TargetHost}:{Port}, Interval: {MonitoringInterval}ms");
+            var retryInfo = EnableRetries ? $" (Retries: {MaxRetries}, Base delay: {BaseDelayMs}ms)" : " (No retries)";
+            AddLogEntry($"Monitoring started - Target: {TargetHost}:{Port}, Interval: {MonitoringInterval}ms{retryInfo}");
             await SaveSettings();
         }
 
@@ -121,7 +139,11 @@ namespace SystemMonitorUDP.ViewModels
                 AutoStartMonitoring = AutoStartMonitoring,
                 StartMinimizedToTray = StartMinimizedToTray,
                 MinimizeToTrayOnClose = MinimizeToTrayOnClose,
-                StartWithWindows = StartWithWindows
+                StartWithWindows = StartWithWindows,
+                EnableRetries = EnableRetries,
+                MaxRetries = MaxRetries,
+                BaseDelayMs = BaseDelayMs,
+                AutoScrollActivityLog = AutoScrollActivityLog
             };
 
             await _settingsService.SaveSettingsAsync(settings);
@@ -178,7 +200,20 @@ namespace SystemMonitorUDP.ViewModels
                     CpuTemperature = metrics.CpuTemperature;
                 });
 
-                await _udpService.SendDataAsync(metrics, TargetHost, Port);
+                // Use retry mechanism if enabled, otherwise use direct send
+                if (EnableRetries)
+                {
+                    await _udpService.SendDataWithRetryAsync(
+                        metrics, 
+                        TargetHost, 
+                        Port, 
+                        MaxRetries, 
+                        TimeSpan.FromMilliseconds(BaseDelayMs));
+                }
+                else
+                {
+                    await _udpService.SendDataAsync(metrics, TargetHost, Port);
+                }
 
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -195,7 +230,9 @@ namespace SystemMonitorUDP.ViewModels
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    AddLogEntry($"Error: {ex.Message}");
+                    // Enhanced error logging to show if retries were attempted
+                    var retryStatus = EnableRetries ? $" (after {MaxRetries + 1} attempts)" : "";
+                    AddLogEntry($"Error sending data{retryStatus}: {ex.Message}");
                 });
             }
         }
@@ -209,6 +246,14 @@ namespace SystemMonitorUDP.ViewModels
             AutoStartMonitoring = settings.AutoStartMonitoring;
             StartMinimizedToTray = settings.StartMinimizedToTray;
             MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
+            
+            // Set retry configuration with fallback to defaults
+            EnableRetries = settings.EnableRetries;
+            MaxRetries = settings.MaxRetries;
+            BaseDelayMs = settings.BaseDelayMs;
+            
+            // Set UI configuration
+            AutoScrollActivityLog = settings.AutoScrollActivityLog;
 
             // Load startup setting and sync with registry
             StartWithWindows = settings.StartWithWindows;
@@ -238,6 +283,12 @@ namespace SystemMonitorUDP.ViewModels
             while (ActivityLog.Count > 100)
             {
                 ActivityLog.RemoveAt(0);
+            }
+
+            // Trigger auto-scroll event if enabled
+            if (AutoScrollActivityLog)
+            {
+                ActivityLogUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
