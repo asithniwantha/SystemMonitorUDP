@@ -17,5 +17,11 @@ namespace SystemMonitorUDP.Models
         
         // UI Settings
         public bool AutoScrollActivityLog { get; set; } = true;
+        
+        // Host resolution and auto-restart settings
+        public bool AutoRestartOnHostFailure { get; set; } = true;
+        public int HostResolutionTimeoutSeconds { get; set; } = 30;
+        public int MaxConsecutiveFailures { get; set; } = 5;
+        public int RestartDelaySeconds { get; set; } = 10;
     }
 }

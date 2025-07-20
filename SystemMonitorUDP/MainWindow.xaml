@@ -62,7 +62,7 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="1.7*"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -182,6 +182,18 @@
                                Style="{StaticResource ModernTextBox}"/>
                     </Grid>
 
+                    <!-- Host Resolution Status -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Host Status:" Foreground="White" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding HostResolutionStatus}" 
+                                 Foreground="{Binding HostResolutionStatus, Converter={x:Static local:Converters.HostStatusToColor}}" 
+                                 VerticalAlignment="Center" FontWeight="Bold"/>
+                    </Grid>
+
                     <!-- Port -->
                     <Grid Margin="0,5">
                         <Grid.ColumnDefinitions>
@@ -203,6 +215,46 @@
                         <TextBox Grid.Column="1" Text="{Binding MonitoringInterval, UpdateSourceTrigger=PropertyChanged}" 
                                Style="{StaticResource ModernTextBox}"/>
                     </Grid>
+
+                    <!-- Auto-Restart Settings -->
+                    <Expander Header="Auto-Restart Settings" Foreground="White" Margin="0,10,0,0" 
+                              Background="#FF3E3E42" BorderBrush="#FF5A5A5A">
+                        <StackPanel Margin="10">
+                            <CheckBox Content="Auto-restart on host failure" IsChecked="{Binding AutoRestartOnHostFailure}" 
+                                    Foreground="White" Margin="0,3"
+                                    ToolTip="Automatically restart monitoring when host cannot be resolved"/>
+                            
+                            <Grid Margin="0,5" IsEnabled="{Binding AutoRestartOnHostFailure}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Max failures:" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding MaxConsecutiveFailures, UpdateSourceTrigger=PropertyChanged}" 
+                                       Style="{StaticResource ModernTextBox}" ToolTip="Number of consecutive failures before restart"/>
+                            </Grid>
+                            
+                            <Grid Margin="0,5" IsEnabled="{Binding AutoRestartOnHostFailure}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Check interval (s):" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding HostResolutionTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" 
+                                       Style="{StaticResource ModernTextBox}" ToolTip="How often to check host resolution"/>
+                            </Grid>
+                            
+                            <Grid Margin="0,5" IsEnabled="{Binding AutoRestartOnHostFailure}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Restart delay (s):" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding RestartDelaySeconds, UpdateSourceTrigger=PropertyChanged}" 
+                                       Style="{StaticResource ModernTextBox}" ToolTip="Delay before restarting monitoring"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
 
                     <!-- Settings -->
                     <StackPanel Margin="0,20,0,0">
@@ -233,6 +285,10 @@
                         <Button Content="Save Settings" 
                               Command="{Binding SaveSettingsCommand}" 
                               Style="{StaticResource ModernButton}"/>
+                        <Button Content="Test Host" 
+                              Command="{Binding TestHostResolutionCommand}" 
+                              Style="{StaticResource ModernButton}"
+                              ToolTip="Test if the target host can be resolved"/>
                         <Button Content="Debug Startup" 
                               Command="{Binding DebugStartupCommand}" 
                               Style="{StaticResource ModernButton}"
@@ -241,6 +297,13 @@
                 </StackPanel>
             </GroupBox>
         </Grid>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="2" Background="#FF3E3E42" Foreground="White" Margin="0,-10,0,0">
+            <StatusBarItem>
+                <TextBlock Text="{Binding CurrentStatus}" Foreground="White" FontSize="14"/>
+            </StatusBarItem>
+        </StatusBar>
 
         <!-- Activity Log -->
         <GroupBox Grid.Row="2" Header="Activity Log" 

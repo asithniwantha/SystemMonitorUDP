@@ -11,6 +11,7 @@ namespace SystemMonitorUDP.Services
         Task SendDataAsync(SystemMetrics data, string host, int port);
         Task SendDataWithRetryAsync(SystemMetrics data, string host, int port, int maxRetries = 3, TimeSpan? baseDelay = null);
         bool IsValidHost(string host);
+        Task<bool> CanResolveHostAsync(string host);
     }
 
     public class UdpService : IUdpService, IDisposable
@@ -128,6 +129,33 @@ namespace SystemMonitorUDP.Services
 
             // Check if it's a valid hostname/mDNS (basic validation)
             return Uri.CheckHostName(host) != UriHostNameType.Unknown;
+        }
+
+        public async Task<bool> CanResolveHostAsync(string host)
+        {
+            if (string.IsNullOrWhiteSpace(host))
+                return false;
+
+            try
+            {
+                // If it's already an IP address, it's resolvable
+                if (IPAddress.TryParse(host, out _))
+                    return true;
+
+                // Try to resolve the hostname
+                var hostEntry = await Dns.GetHostEntryAsync(host);
+                return hostEntry.AddressList.Length > 0;
+            }
+            catch (SocketException)
+            {
+                // Host not found or network error
+                return false;
+            }
+            catch (Exception)
+            {
+                // Other DNS resolution errors
+                return false;
+            }
         }
 
         public void Dispose()

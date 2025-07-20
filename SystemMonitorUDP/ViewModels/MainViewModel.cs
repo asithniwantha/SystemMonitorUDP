@@ -74,6 +74,27 @@ namespace SystemMonitorUDP.ViewModels
         [ObservableProperty]
         private bool _autoScrollActivityLog = true;
 
+        // Host resolution and auto-restart settings
+        [ObservableProperty]
+        private bool _autoRestartOnHostFailure = true;
+
+        [ObservableProperty]
+        private int _hostResolutionTimeoutSeconds = 30;
+
+        [ObservableProperty]
+        private int _maxConsecutiveFailures = 5;
+
+        [ObservableProperty]
+        private int _restartDelaySeconds = 10;
+
+        [ObservableProperty]
+        private string _hostResolutionStatus = "Ready";
+
+        // Host resolution monitoring
+        private int _consecutiveFailures = 0;
+        private DateTime _lastHostResolutionCheck = DateTime.MinValue;
+        private bool _isRestartPending = false;
+
         public ObservableCollection<string> ActivityLog { get; } = new();
 
         // Event for auto-scroll functionality
@@ -104,14 +125,21 @@ namespace SystemMonitorUDP.ViewModels
                 return;
             }
 
+            // Reset host resolution tracking
+            _consecutiveFailures = 0;
+            _lastHostResolutionCheck = DateTime.MinValue;
+            _isRestartPending = false;
+
             IsMonitoring = true;
             WindowTitle = "UDP System Monitor - Active";
+            HostResolutionStatus = "Starting...";
 
             _monitoringTimer.Interval = MonitoringInterval;
             _monitoringTimer.Start();
 
             var retryInfo = EnableRetries ? $" (Retries: {MaxRetries}, Base delay: {BaseDelayMs}ms)" : " (No retries)";
-            AddLogEntry($"Monitoring started - Target: {TargetHost}:{Port}, Interval: {MonitoringInterval}ms{retryInfo}");
+            var restartInfo = AutoRestartOnHostFailure ? $" (Auto-restart: {MaxConsecutiveFailures} failures)" : "";
+            AddLogEntry($"Monitoring started - Target: {TargetHost}:{Port}, Interval: {MonitoringInterval}ms{retryInfo}{restartInfo}");
             await SaveSettings();
         }
 
@@ -122,6 +150,7 @@ namespace SystemMonitorUDP.ViewModels
 
             IsMonitoring = false;
             WindowTitle = "UDP System Monitor - Ready";
+            HostResolutionStatus = "Stopped";
 
             _monitoringTimer.Stop();
             AddLogEntry("Monitoring stopped");
@@ -143,7 +172,11 @@ namespace SystemMonitorUDP.ViewModels
                 EnableRetries = EnableRetries,
                 MaxRetries = MaxRetries,
                 BaseDelayMs = BaseDelayMs,
-                AutoScrollActivityLog = AutoScrollActivityLog
+                AutoScrollActivityLog = AutoScrollActivityLog,
+                AutoRestartOnHostFailure = AutoRestartOnHostFailure,
+                HostResolutionTimeoutSeconds = HostResolutionTimeoutSeconds,
+                MaxConsecutiveFailures = MaxConsecutiveFailures,
+                RestartDelaySeconds = RestartDelaySeconds
             };
 
             await _settingsService.SaveSettingsAsync(settings);
@@ -183,10 +216,80 @@ namespace SystemMonitorUDP.ViewModels
             }
         }
 
+        [RelayCommand]
+        public async Task TestHostResolution()
+        {
+            AddLogEntry($"Testing host resolution for '{TargetHost}'...");
+            
+            try
+            {
+                var canResolve = await _udpService.CanResolveHostAsync(TargetHost);
+                if (canResolve)
+                {
+                    AddLogEntry($"? Host '{TargetHost}' resolved successfully");
+                }
+                else
+                {
+                    AddLogEntry($"? Failed to resolve host '{TargetHost}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLogEntry($"? Error testing host resolution: {ex.Message}");
+            }
+        }
+
         private async void MonitoringTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             try
             {
+                // Check if we need to verify host resolution
+                if (AutoRestartOnHostFailure && !_isRestartPending)
+                {
+                    var timeSinceLastCheck = DateTime.Now - _lastHostResolutionCheck;
+                    if (timeSinceLastCheck.TotalSeconds >= HostResolutionTimeoutSeconds)
+                    {
+                        var canResolve = await _udpService.CanResolveHostAsync(TargetHost);
+                        _lastHostResolutionCheck = DateTime.Now;
+                        
+                        if (!canResolve)
+                        {
+                            _consecutiveFailures++;
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                HostResolutionStatus = $"Failed ({_consecutiveFailures}/{MaxConsecutiveFailures})";
+                                AddLogEntry($"Host resolution failed for '{TargetHost}' (failure {_consecutiveFailures}/{MaxConsecutiveFailures})");
+                            });
+                            
+                            if (_consecutiveFailures >= MaxConsecutiveFailures)
+                            {
+                                await HandleHostResolutionFailure();
+                                return; // Exit early, restart is pending
+                            }
+                        }
+                        else
+                        {
+                            // Reset failure counter on successful resolution
+                            if (_consecutiveFailures > 0)
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    HostResolutionStatus = "Resolved";
+                                    AddLogEntry($"Host '{TargetHost}' resolution restored");
+                                });
+                                _consecutiveFailures = 0;
+                            }
+                            else
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    HostResolutionStatus = "Resolved";
+                                });
+                            }
+                        }
+                    }
+                }
+
                 var metrics = await _systemMonitorService.GetCurrentMetricsAsync();
 
                 // Update UI on main thread
@@ -215,6 +318,24 @@ namespace SystemMonitorUDP.ViewModels
                     await _udpService.SendDataAsync(metrics, TargetHost, Port);
                 }
 
+                // Reset consecutive failures on successful data send
+                if (_consecutiveFailures > 0)
+                {
+                    _consecutiveFailures = 0;
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        HostResolutionStatus = "Resolved";
+                        AddLogEntry($"Data transmission restored to '{TargetHost}'");
+                    });
+                }
+                else if (IsMonitoring)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        HostResolutionStatus = "Active";
+                    });
+                }
+
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     AddLogEntry($"Data sent - CPU: {metrics.CpuUsage:F1}%, RAM: {metrics.RamUsage:F1}%, Vol: {metrics.VolumeLevel:F1}%, Temp: {metrics.CpuTemperature:F1}°C");
@@ -228,13 +349,58 @@ namespace SystemMonitorUDP.ViewModels
             }
             catch (Exception ex)
             {
+                _consecutiveFailures++;
+                
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     // Enhanced error logging to show if retries were attempted
                     var retryStatus = EnableRetries ? $" (after {MaxRetries + 1} attempts)" : "";
-                    AddLogEntry($"Error sending data{retryStatus}: {ex.Message}");
+                    HostResolutionStatus = $"Error ({_consecutiveFailures}/{MaxConsecutiveFailures})";
+                    AddLogEntry($"Error sending data{retryStatus}: {ex.Message} (failure {_consecutiveFailures}/{MaxConsecutiveFailures})");
                 });
+
+                // Check if we should restart due to consecutive failures
+                if (AutoRestartOnHostFailure && _consecutiveFailures >= MaxConsecutiveFailures && !_isRestartPending)
+                {
+                    await HandleHostResolutionFailure();
+                }
             }
+        }
+
+        private async Task HandleHostResolutionFailure()
+        {
+            _isRestartPending = true;
+            
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                HostResolutionStatus = "Restarting...";
+                AddLogEntry($"Maximum consecutive failures reached ({MaxConsecutiveFailures}). Initiating restart in {RestartDelaySeconds} seconds...");
+            });
+
+            // Stop current monitoring
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await StopMonitoring();
+            });
+
+            // Wait for the specified restart delay
+            await Task.Delay(TimeSpan.FromSeconds(RestartDelaySeconds));
+
+            // Reset counters and restart
+            _consecutiveFailures = 0;
+            _lastHostResolutionCheck = DateTime.MinValue;
+            _isRestartPending = false;
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                AddLogEntry($"Restarting monitoring for host '{TargetHost}'...");
+            });
+
+            // Restart monitoring
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await StartMonitoring();
+            });
         }
 
         private void LoadSettings()
@@ -254,6 +420,12 @@ namespace SystemMonitorUDP.ViewModels
             
             // Set UI configuration
             AutoScrollActivityLog = settings.AutoScrollActivityLog;
+            
+            // Set auto-restart configuration
+            AutoRestartOnHostFailure = settings.AutoRestartOnHostFailure;
+            HostResolutionTimeoutSeconds = settings.HostResolutionTimeoutSeconds;
+            MaxConsecutiveFailures = settings.MaxConsecutiveFailures;
+            RestartDelaySeconds = settings.RestartDelaySeconds;
 
             // Load startup setting and sync with registry
             StartWithWindows = settings.StartWithWindows;
